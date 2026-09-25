@@ -89,6 +89,10 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(-
 .grade-sub{font-size:13px;color:var(--soft)}
 .sb-in .next{margin-left:auto;border:0;background:var(--ink);color:var(--sheet);border-radius:999px;padding:13px 20px;font-weight:700}
 .miss{font-size:12px;color:var(--bad)}
+.sb-in{flex-wrap:wrap}
+.wrongs{flex-basis:100%;font-size:14px;color:var(--bad);font-variant-numeric:tabular-nums;line-height:1.35}
+.wrongs:empty{display:none}
+.wrongs b{color:var(--ink)}
 
 /* Blocos gerais */
 h2{font-size:19px;margin:26px 0 4px}
@@ -272,6 +276,7 @@ summary{cursor:pointer;color:var(--soft);font-size:14px}
     </div>
     <div class="miss" id="miss"></div>
     <button class="next" id="saveNext">Próximo aluno</button>
+    <div class="wrongs" id="wrongs" aria-live="polite"></div>
   </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -344,6 +349,12 @@ function score(ex, ans){
   });
   const n = nq(ex);
   return {tot, per, grade: n ? tot/n*ex.max : 0};
+}
+// Questões que não valem ponto: errada, rasurada (X), em branco (-) ou sem marcar. Anuladas ficam de fora.
+function wrongList(ex, ans, upTo){
+  const out = [], lim = upTo === undefined ? ans.length-1 : upTo;
+  for(let i=0;i<=lim;i++){ const k = ex.key[i]; if(k==='*') continue; if(!(ans[i] && k && ans[i]===k)) out.push(pad(i+1)); }
+  return out;
 }
 const fmt = v => v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 const pad = n => String(n).padStart(2,'0');
@@ -434,6 +445,10 @@ function paint(){
   document.getElementById('grade').textContent = s.ans.some(a=>a) ? fmt(r.grade) : '–';
   document.getElementById('gradeSub').textContent = `${r.tot} de ${n} acertos`;
   document.getElementById('miss').textContent = blank && blank<n ? `${blank} sem marcar` : '';
+  // durante a correção, lista até a última questão lançada; as seguintes ainda estão "sem marcar"
+  let last = -1; s.ans.forEach((a,i)=>{ if(a) last=i; });
+  const wr = last>=0 ? wrongList(ex, s.ans, last) : [];
+  document.getElementById('wrongs').innerHTML = last<0 ? '' : (wr.length ? `<b>Questões erradas:</b> ${wr.join(', ')}` : '<b>Nenhuma questão errada até aqui.</b>');
   document.getElementById('stuName').value = s.name;
   document.getElementById('stuSel').value = cur;
   document.getElementById('stuOf').textContent = `de ${ex.n}`;
@@ -445,8 +460,9 @@ function focusRow(i){
   const row = document.querySelector(`#sheet .q[data-i="${i}"]`); if(!row) return;
   const r = row.getBoundingClientRect();
   const top = document.getElementById('stuHead').getBoundingClientRect().bottom + 8;
-  const bottom = window.innerHeight - document.getElementById('scorebar').offsetHeight - 8;
-  if(r.top < top || r.bottom > bottom) window.scrollBy({top: r.top - (top+bottom)/2 + r.height/2, behavior:'smooth'});
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;   // desconta o teclado aberto
+  const bottom = Math.min(vh, window.innerHeight - document.getElementById('scorebar').offsetHeight) - 8;
+  if(r.top < top || r.bottom > bottom) window.scrollBy({top: r.top - (top+bottom)/2 + r.height/2, behavior:'auto'});
 }
 
 function syncFast(){
@@ -602,10 +618,10 @@ function renderResults(){
   if(!done.length) tbl.innerHTML = '<tr><td class="empty">Nenhuma prova corrigida ainda. Comece pela aba Corrigir.</td></tr>';
   else{
     const abbr = s => esc((s||'?').replace(/^L[íi]ngua\s+/i,'').slice(0,4));
-    let h = `<tr><th>Nº</th><th>Nome</th>${rg.map(a=>`<th title="${esc(a.name)}">${abbr(a.name)}<br>/${a.q}</th>`).join('')}<th>Total<br>/${n}</th><th>Nota</th></tr>`;
+    let h = `<tr><th>Nº</th><th>Nome</th>${rg.map(a=>`<th title="${esc(a.name)}">${abbr(a.name)}<br>/${a.q}</th>`).join('')}<th>Total<br>/${n}</th><th>Nota</th><th style="text-align:left">Erradas</th></tr>`;
     done.forEach(i=>{
       const s = ex.students[i], r = score(ex, s.ans);
-      h += `<tr class="go" data-n="${i}"><td>${pad(i)}</td><td>${esc(s.name)||'—'}</td>${r.per.map(p=>`<td>${p}</td>`).join('')}<td>${r.tot}</td><td class="${r.grade<ex.max*0.6?'low':''}">${fmt(r.grade)}</td></tr>`;
+      h += `<tr class="go" data-n="${i}"><td>${pad(i)}</td><td>${esc(s.name)||'—'}</td>${r.per.map(p=>`<td>${p}</td>`).join('')}<td>${r.tot}</td><td class="${r.grade<ex.max*0.6?'low':''}">${fmt(r.grade)}</td><td style="text-align:left;white-space:normal;min-width:180px;font-size:13px">${wrongList(ex,s.ans).join(', ')||'—'}</td></tr>`;
     });
     tbl.innerHTML = h;
   }
@@ -624,12 +640,12 @@ function renderResults(){
 
 function csvText(ex){
   const rg = ranges(ex), n = nq(ex);
-  const head = ['Nº','Nome',...rg.map(a=>a.name),'Acertos','Nota',...Array.from({length:n},(_,i)=>'Q'+pad(i+1))];
-  const rows = [head, ['','Gabarito',...rg.map(()=>''),'','',...ex.key.map(k=>k==='*'?'anulada':k)]];
+  const head = ['Nº','Nome',...rg.map(a=>a.name),'Acertos','Nota','Questões erradas',...Array.from({length:n},(_,i)=>'Q'+pad(i+1))];
+  const rows = [head, ['','Gabarito',...rg.map(()=>''),'','','',...ex.key.map(k=>k==='*'?'anulada':k)]];
   for(let i=1;i<=ex.n;i++){
     if(!answered(ex,i)) continue;
     const s = ex.students[i], r = score(ex, s.ans);
-    rows.push([i, s.name, ...r.per, r.tot, fmt(r.grade), ...s.ans.map(a=>a||'')]);
+    rows.push([i, s.name, ...r.per, r.tot, fmt(r.grade), wrongList(ex,s.ans).join(', '), ...s.ans.map(a=>a||'')]);
   }
   return rows.map(r=>r.map(c=>{ c=String(c); return /[;"\n]/.test(c) ? '"'+c.replace(/"/g,'""')+'"' : c; }).join(';')).join('\n');
 }
@@ -762,6 +778,7 @@ document.getElementById('fastIn').addEventListener('input', e=>{
   e.target.value = v;
   stu(cur).ans = Array.from({length:n}, (_,i)=> v[i] || '');
   curQ = Math.min(v.length, n-1); save(); paint();
+  focusRow(curQ);   // o cartão rola junto com a digitação
 });
 document.getElementById('clearStu').onclick = () => {
   if(!confirm(`Limpar as respostas do aluno ${cur}?`)) return;
