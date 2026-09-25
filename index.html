@@ -93,6 +93,9 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(-
 .wrongs{flex-basis:100%;font-size:14px;color:var(--bad);font-variant-numeric:tabular-nums;line-height:1.35}
 .wrongs:empty{display:none}
 .wrongs b{color:var(--ink)}
+.rights{flex-basis:100%;font-size:14px;color:var(--ok);font-variant-numeric:tabular-nums;line-height:1.35}
+.rights:empty{display:none}
+.rights b{color:var(--ink)}
 
 /* Blocos gerais */
 h2{font-size:19px;margin:26px 0 4px}
@@ -276,6 +279,7 @@ summary{cursor:pointer;color:var(--soft);font-size:14px}
     </div>
     <div class="miss" id="miss"></div>
     <button class="next" id="saveNext">Próximo aluno</button>
+    <div class="rights" id="rights"></div>
     <div class="wrongs" id="wrongs" aria-live="polite"></div>
   </div>
 </div>
@@ -448,6 +452,9 @@ function paint(){
   // durante a correção, lista até a última questão lançada; as seguintes ainda estão "sem marcar"
   let last = -1; s.ans.forEach((a,i)=>{ if(a) last=i; });
   const wr = last>=0 ? wrongList(ex, s.ans, last) : [];
+  // certas = valem ponto; anuladas entram porque contam para todos
+  const rt = []; for(let i=0;i<=last;i++){ const k = ex.key[i]; if(k==='*' || (s.ans[i] && k && s.ans[i]===k)) rt.push(pad(i+1)); }
+  document.getElementById('rights').innerHTML = last<0 ? '' : `<b>Questões certas:</b> ${rt.length ? rt.join(', ') : 'nenhuma até aqui'}`;
   document.getElementById('wrongs').innerHTML = last<0 ? '' : (wr.length ? `<b>Questões erradas:</b> ${wr.join(', ')}` : '<b>Nenhuma questão errada até aqui.</b>');
   document.getElementById('stuName').value = s.name;
   document.getElementById('stuSel').value = cur;
