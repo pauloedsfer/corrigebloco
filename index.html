@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Corretor de provas – cartão-resposta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF1F4; --sheet:#FFFFFF; --ink:#1B2530; --soft:#5B6874; --line:#CBD3DA;
+  --pen:#2346C8; --pen-soft:#E3E9FB; --ok:#1C7F52; --ok-soft:#DDF1E6; --bad:#BF3328; --bad-soft:#F8E1DE;
+  --warn:#8A5A00; --warn-soft:#FBEFD5; --navh:96px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171C; --sheet:#1B2229; --ink:#E6ECF1; --soft:#98A5B1; --line:#33404B;
+    --pen:#7F9BFF; --pen-soft:#243154; --ok:#5CCB94; --ok-soft:#173828; --bad:#FF7F73; --bad-soft:#3E1D1A;
+    --warn:#F2C46B; --warn-soft:#3A2E14;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171C; --sheet:#1B2229; --ink:#E6ECF1; --soft:#98A5B1; --line:#33404B;
+  --pen:#7F9BFF; --pen-soft:#243154; --ok:#5CCB94; --ok-soft:#173828; --bad:#FF7F73; --bad-soft:#3E1D1A;
+  --warn:#F2C46B; --warn-soft:#3A2E14;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding:0 14px 110px}
+
+/* Topo: prova atual + abas */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper)}
+.top-in{max-width:560px;margin:0 auto;padding:10px 14px 0}
+.examBtn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:2px 0;text-align:left}
+.examBtn b{font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.examBtn span{font-size:13px;color:var(--soft);flex:0 0 auto}
+nav.tabs{display:flex;gap:2px}
+nav.tabs button{flex:1;border:0;background:none;padding:9px 2px 11px;font-weight:700;color:var(--soft);border-bottom:3px solid transparent;font-size:15px}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.view{display:none}.view.on{display:block}
+
+/* Aluno */
+.student{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--navh));z-index:15;background:var(--paper);padding:10px 0;border-bottom:1px solid var(--line)}
+.stu-row{display:flex;align-items:center;gap:8px}
+.stu-nav{width:46px;height:46px;flex:0 0 46px;border-radius:50%;border:1.5px solid var(--line);background:var(--sheet);font-size:22px;line-height:1}
+.stu-num{flex:0 0 auto;display:flex;align-items:baseline;gap:4px}
+.stu-num select{border:0;background:none;font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;padding:0 2px;appearance:none;-webkit-appearance:none}
+.stu-num small{color:var(--soft)}
+.stu-name{flex:1;min-width:0;border:1.5px solid var(--line);background:var(--sheet);border-radius:8px;padding:10px 12px}
+.fast{margin-top:8px;display:flex;gap:8px}
+.fast input,.mono{flex:1;min-width:0;border:1.5px dashed var(--line);background:var(--sheet);border-radius:8px;padding:9px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase}
+.fast button{border:1.5px solid var(--line);background:var(--sheet);border-radius:8px;padding:0 12px;color:var(--soft)}
+.hint{font-size:13px;color:var(--soft);margin:6px 2px 0}
+
+/* Cartão-resposta */
+.area{margin:18px 0 6px;font-weight:700;font-size:14px;color:var(--soft);display:flex;justify-content:space-between}
+.card{background:var(--sheet);border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.q{display:grid;grid-template-columns:40px 1fr 34px;align-items:center;padding:6px 8px;border-top:1px solid var(--line)}
+.q:first-child{border-top:0}
+.q:nth-child(even){background:color-mix(in srgb,var(--paper) 55%,var(--sheet))}
+.q.cur{box-shadow:inset 4px 0 0 var(--pen)}
+.qn{font-weight:700;font-variant-numeric:tabular-nums;color:var(--soft)}
+.bubbles{display:flex;justify-content:space-between;max-width:290px}
+.bubbles.four{max-width:236px}
+.b{width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);background:transparent;font-weight:700;font-size:16px;display:grid;place-items:center;transition:transform .08s}
+.b:active{transform:scale(.92)}
+.b.mark{background:var(--pen);border-color:var(--pen);color:#fff}
+.b.mark.ok{background:var(--ok);border-color:var(--ok)}
+.b.mark.bad{background:var(--bad);border-color:var(--bad)}
+.b.key{box-shadow:0 0 0 3px var(--ok-soft),0 0 0 5px var(--ok)}
+.st{text-align:center;font-weight:700;font-size:18px}
+.st.ok{color:var(--ok)}.st.bad{color:var(--bad)}
+.q.gab .b.mark{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.q.nul .bubbles{opacity:.35}
+.nulBtn{border:1.5px solid var(--line);background:none;border-radius:6px;font-size:11px;padding:4px 0;color:var(--soft);width:34px}
+.q.nul .nulBtn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);font-weight:700}
+.q.nul .st{font-size:11px;color:var(--warn)}
+
+/* Barra de nota */
+.scorebar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--sheet);border-top:1.5px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
+.sb-in{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.grade{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.grade-sub{font-size:13px;color:var(--soft)}
+.sb-in .next{margin-left:auto;border:0;background:var(--ink);color:var(--sheet);border-radius:999px;padding:13px 20px;font-weight:700}
+.miss{font-size:12px;color:var(--bad)}
+
+/* Blocos gerais */
+h2{font-size:19px;margin:26px 0 4px}
+.sub{color:var(--soft);font-size:14px;margin:0 0 10px}
+.panel{background:var(--sheet);border:1.5px solid var(--line);border-radius:10px;padding:14px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--soft)}
+.field input,.field select,.field textarea{border:1.5px solid var(--line);background:var(--sheet);border-radius:8px;padding:10px;font-size:16px;color:var(--ink)}
+.field textarea{min-height:120px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+.btn{border:1.5px solid var(--line);background:var(--sheet);border-radius:999px;padding:11px 16px;font-weight:700}
+.btn.primary{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:7px 12px;font-size:14px}
+.note{border-radius:8px;padding:10px 12px;font-size:14px;margin-top:10px}
+.note.warn{background:var(--warn-soft);color:var(--warn)}
+.note.ok{background:var(--ok-soft);color:var(--ok)}
+.note:empty{display:none}
+
+/* Disciplinas */
+.disc{display:grid;grid-template-columns:1fr 74px 64px 40px;gap:8px;align-items:center;margin-top:8px}
+.disc input{border:1.5px solid var(--line);background:var(--sheet);border-radius:8px;padding:9px 10px;font-size:16px;min-width:0}
+.disc .rng{font-size:13px;color:var(--soft);font-variant-numeric:tabular-nums;text-align:center}
+.disc .del{border:0;background:none;color:var(--bad);font-size:20px}
+.disc-head{display:grid;grid-template-columns:1fr 74px 64px 40px;gap:8px;font-size:12px;color:var(--soft);margin-top:10px}
+
+/* Resultados */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.stat{background:var(--sheet);border:1.5px solid var(--line);border-radius:10px;padding:10px}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--soft)}
+.tbl-wrap{overflow-x:auto;background:var(--sheet);border:1.5px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+th,td{padding:8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--soft);font-weight:700}
+th:nth-child(2),td:nth-child(2){text-align:left;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+tr.go{cursor:pointer}
+tr.go:hover td{background:var(--pen-soft)}
+td.low{color:var(--bad);font-weight:700}
+.qbars{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.qb{background:var(--sheet);border:1.5px solid var(--line);border-radius:8px;padding:6px;text-align:center;font-variant-numeric:tabular-nums}
+.qb .n{font-size:12px;color:var(--soft)}
+.qb .p{font-weight:700}
+.qb.low{border-color:var(--bad);background:var(--bad-soft)}
+.qb.low .p{color:var(--bad)}
+.qb .w{font-size:11px;color:var(--soft)}
+.empty{padding:24px;text-align:center;color:var(--soft)}
+
+/* Provas */
+.exam{background:var(--sheet);border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+.exam.cur{border-color:var(--ink);border-width:2px}
+.exam h3{margin:0;font-size:16px}
+.exam p{margin:2px 0 0;font-size:13px;color:var(--soft)}
+.exam .actions{margin-top:10px}
+.prog{height:6px;border-radius:3px;background:var(--line);margin-top:8px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ok)}
+details{margin-top:12px}
+summary{cursor:pointer;color:var(--soft);font-size:14px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:999px;font-size:14px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="top" id="top">
+  <div class="top-in">
+    <button class="examBtn" id="examBtn" aria-label="Trocar de prova"><b id="examTitle"></b><span>trocar ▾</span></button>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="corrigir">Corrigir</button>
+      <button role="tab" aria-selected="false" data-tab="resultados">Resultados</button>
+      <button role="tab" aria-selected="false" data-tab="configurar">Configurar</button>
+      <button role="tab" aria-selected="false" data-tab="provas">Provas</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- CORRIGIR -->
+  <section class="view on" id="v-corrigir">
+    <div class="student" id="stuHead">
+      <div class="stu-row">
+        <button class="stu-nav" id="prev" aria-label="Aluno anterior">‹</button>
+        <div class="stu-num"><select id="stuSel" aria-label="Número do aluno"></select><small id="stuOf"></small></div>
+        <input class="stu-name" id="stuName" placeholder="Nome (opcional)" autocomplete="off">
+        <button class="stu-nav" id="next" aria-label="Próximo aluno">›</button>
+      </div>
+      <div class="fast">
+        <input id="fastIn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Digitação rápida: ADAACEE…">
+        <button id="clearStu">Limpar</button>
+      </div>
+      <p class="hint">Toque nas bolinhas ou digite as letras em sequência. <b>-</b> = em branco, <b>X</b> = rasurada.</p>
+    </div>
+    <div class="note warn" id="keyWarn"></div>
+    <div id="sheet"></div>
+  </section>
+
+  <!-- RESULTADOS -->
+  <section class="view" id="v-resultados">
+    <div class="stats" id="stats"></div>
+    <div class="tbl-wrap"><table id="tbl"></table></div>
+    <h2>Acerto por questão</h2>
+    <p class="sub">Em vermelho, menos de 50% de acerto. Embaixo, a alternativa errada mais marcada.</p>
+    <div class="qbars" id="qbars"></div>
+    <div class="actions">
+      <button class="btn primary" id="csv">Baixar planilha (CSV)</button>
+      <button class="btn" id="copy">Copiar notas</button>
+    </div>
+  </section>
+
+  <!-- CONFIGURAR -->
+  <section class="view" id="v-configurar">
+    <h2>Dados da prova</h2>
+    <div class="panel">
+      <label class="field">Nome da prova / turma<input id="cTitle" placeholder="Ex.: 1ª Série A – 3º Bim – Linguagens"></label>
+      <div class="grid3">
+        <label class="field">Nº de alunos<input type="number" id="cN" min="1" max="100" inputmode="numeric"></label>
+        <label class="field">Nota máxima<input type="number" id="cMax" min="1" step="0.5" inputmode="decimal"></label>
+        <label class="field">Alternativas<select id="cAlts"><option value="5">A a E</option><option value="4">A a D</option></select></label>
+      </div>
+    </div>
+
+    <h2>Disciplinas</h2>
+    <p class="sub">Na mesma ordem do cartão-resposta. O total de questões é a soma.</p>
+    <div class="panel">
+      <div class="disc-head"><span>Disciplina</span><span>Questões</span><span style="text-align:center">Faixa</span><span></span></div>
+      <div id="discList"></div>
+      <div class="actions">
+        <button class="btn sm" id="addDisc">+ Adicionar disciplina</button>
+      </div>
+      <div class="note ok" id="discTotal"></div>
+    </div>
+
+    <h2>Gabarito</h2>
+    <p class="sub">Digite as letras em sequência ou toque nas bolinhas. Use <b>*</b> ou o botão “anul.” para questão anulada (vale ponto para todos).</p>
+    <input class="mono" id="keyFast" style="width:100%" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ADAACEE…">
+    <div class="note warn" id="keyMissing"></div>
+    <div id="keySheet"></div>
+
+    <h2>Nomes dos alunos</h2>
+    <p class="sub">Cole a lista da chamada, um nome por linha, na ordem dos números. O nº de alunos é ajustado.</p>
+    <label class="field"><textarea id="namesIn" placeholder="Ana Beatriz&#10;Bruno Henrique&#10;…"></textarea></label>
+    <div class="actions"><button class="btn" id="namesApply">Aplicar nomes</button></div>
+
+    <h2>Correções desta prova</h2>
+    <div class="actions" style="margin-top:6px"><button class="btn danger" id="resetExam">Apagar as correções desta prova</button></div>
+  </section>
+
+  <!-- PROVAS -->
+  <section class="view" id="v-provas">
+    <h2>Suas provas</h2>
+    <p class="sub">Cada prova guarda o próprio gabarito, disciplinas e alunos. Para aplicar o mesmo gabarito a outra turma, use “Duplicar”.</p>
+    <div class="actions" style="margin-top:4px"><button class="btn primary" id="newExam">+ Nova prova</button></div>
+    <div id="examList"></div>
+
+    <h2>Backup</h2>
+    <p class="sub">As correções ficam só neste aparelho. Exporte um backup para guardar ou continuar em outro aparelho.</p>
+    <div class="panel">
+      <div class="actions" style="margin-top:0">
+        <button class="btn primary" id="expAll">Exportar backup</button>
+        <button class="btn" id="impBtn">Importar backup</button>
+        <input type="file" id="impFile" accept=".json,application/json" hidden>
+      </div>
+      <details>
+        <summary>Sem arquivo? Copiar ou colar o backup como texto</summary>
+        <div class="actions"><button class="btn sm" id="copyBackup">Copiar backup</button></div>
+        <label class="field" style="margin-top:10px">Cole aqui o texto do backup<textarea id="pasteBackup" spellcheck="false"></textarea></label>
+        <div class="actions"><button class="btn sm" id="pasteImport">Importar texto colado</button></div>
+      </details>
+      <div class="note" id="impMsg"></div>
+    </div>
+  </section>
+</main>
+
+<div class="scorebar" id="scorebar">
+  <div class="sb-in">
+    <div>
+      <div class="grade" id="grade">–</div>
+      <div class="grade-sub" id="gradeSub"></div>
+    </div>
+    <div class="miss" id="miss"></div>
+    <button class="next" id="saveNext">Próximo aluno</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const ALL_LETTERS = ['A','B','C','D','E'];
+const STORE = 'corretor-provas-v2';
+const STORE_V1 = 'corretor-1serie-3bim-v1';   // versão anterior, migrada na 1ª abertura
+
+/* ================= Dados ================= */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+function presetExam(){
+  // Cartão da 1ª série – 3º bimestre (Linguagens / Arte-Visuais), transcrito da foto
+  return {
+    id: uid(), title: '1ª Série – 3º Bim – Linguagens (Arte-Visuais)', alts: 5, n: 40, max: 10,
+    areas: [{name:'Educação Física',q:7},{name:'Língua Inglesa',q:6},{name:'Língua Portuguesa',q:20},{name:'Arte (Visuais)',q:7}],
+    key: 'ADAACEEDABBCEDAEAECDCDDCDBCDDEBAABAEBAAC'.split(''),
+    students: {}, created: Date.now()
+  };
+}
+function blankExam(){
+  return { id: uid(), title: 'Nova prova', alts: 5, n: 40, max: 10,
+    areas: [{name:'Geral', q:10}], key: Array(10).fill(''), students: {}, created: Date.now() };
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE);
+    if(raw){ const d = JSON.parse(raw); if(d && Array.isArray(d.exams) && d.exams.length) return d; }
+  }catch(e){}
+  const ex = presetExam();
+  // aproveita as correções feitas na primeira versão da ferramenta
+  try{
+    const old = JSON.parse(localStorage.getItem(STORE_V1) || 'null');
+    if(old && old.key){ ex.key = old.key; ex.n = old.n || 40; ex.max = old.max || 10; ex.students = old.students || {}; }
+  }catch(e){}
+  return { version: 2, exams: [ex], cur: ex.id };
+}
+let D = load();
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(D)); }catch(e){ toast('Não foi possível salvar neste navegador. Exporte um backup.'); } }
+
+const E = () => D.exams.find(x => x.id === D.cur) || D.exams[0];
+const nq = ex => ex.areas.reduce((s,a)=>s+(+a.q||0),0);
+const letters = ex => ALL_LETTERS.slice(0, ex.alts);
+function ranges(ex){ let f=1; return ex.areas.map(a=>{ const r={...a, from:f, to:f+(+a.q||0)-1}; f=r.to+1; return r; }); }
+
+// Mantém gabarito e respostas no tamanho certo depois de mudar as disciplinas
+function normalize(ex){
+  const n = nq(ex);
+  ex.key = Array.from({length:n}, (_,i)=> ex.key[i] || '');
+  Object.values(ex.students).forEach(s => { s.ans = Array.from({length:n}, (_,i)=> s.ans[i] || ''); });
+}
+
+let cur = 1, curQ = 0;
+
+function stu(n){
+  const ex = E();
+  if(!ex.students[n]) ex.students[n] = {name:'', ans:Array(nq(ex)).fill('')};
+  return ex.students[n];
+}
+const answered = (ex,n) => { const s = ex.students[n]; return !!(s && s.ans.some(a=>a)); };
+function score(ex, ans){
+  let tot = 0; const per = ex.areas.map(()=>0); const rg = ranges(ex);
+  ans.forEach((a,i)=>{
+    const k = ex.key[i];
+    if(k === '*' || (a && k && a === k)){
+      tot++; const j = rg.findIndex(r=>i+1>=r.from && i+1<=r.to); if(j>=0) per[j]++;
+    }
+  });
+  const n = nq(ex);
+  return {tot, per, grade: n ? tot/n*ex.max : 0};
+}
+const fmt = v => v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const pad = n => String(n).padStart(2,'0');
+const esc = t => (t||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(msg){
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('on'), 2600);
+}
+
+/* ================= Downloads (capability do Claude) ================= */
+let downloads = null;
+if(window.claude && typeof window.claude.use === 'function'){
+  window.claude.use('downloads').then(d => { downloads = d; }).catch(()=>{});
+}
+async function offerFile(filename, text, fallbackCopy){
+  if(downloads){
+    try{ await downloads.save({filename, data:text}); return; }
+    catch(err){ if(err && err.code === 'declined') return; }
+  }
+  // Fora do Claude (GitHub Pages, Vercel, arquivo local): download normal do navegador
+  if(!window.claude){
+    try{
+      const blob = new Blob([text], {type: filename.endsWith('.csv') ? 'text/csv;charset=utf-8' : 'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+      return;
+    }catch(e){}
+  }
+  // último recurso: copia o conteúdo
+  try{ await navigator.clipboard.writeText(text); toast(fallbackCopy); }
+  catch(e){ toast('Não foi possível baixar nem copiar aqui.'); }
+}
+
+/* ================= Cartão (correção e gabarito) ================= */
+function buildSheet(el, isKey){
+  const ex = E(), L = letters(ex);
+  let h = '';
+  ranges(ex).forEach(a=>{
+    if(a.q < 1) return;
+    h += `<div class="area"><span>${esc(a.name)}</span><span>${pad(a.from)}–${pad(a.to)}</span></div><div class="card">`;
+    for(let q=a.from; q<=a.to; q++){
+      h += `<div class="q${isKey?' gab':''}" data-i="${q-1}"><span class="qn">${pad(q)}</span><div class="bubbles${L.length===4?' four':''}">${
+        L.map(l=>`<button class="b" data-l="${l}" aria-label="Questão ${q}, alternativa ${l}">${l}</button>`).join('')
+      }</div>${isKey?`<button class="nulBtn" aria-label="Anular questão ${q}">anul.</button>`:'<span class="st" aria-hidden="true"></span>'}</div>`;
+    }
+    h += '</div>';
+  });
+  el.innerHTML = h;
+}
+
+document.getElementById('sheet').addEventListener('click', e=>{
+  const b = e.target.closest('.b'); if(!b) return;
+  const i = +b.closest('.q').dataset.i, l = b.dataset.l, s = stu(cur);
+  s.ans[i] = s.ans[i] === l ? '' : l;   // tocar de novo desmarca
+  save();
+  curQ = Math.min(i+1, nq(E())-1);
+  paint(); syncFast();
+  if(s.ans[i]) focusRow(curQ);
+});
+document.getElementById('keySheet').addEventListener('click', e=>{
+  const ex = E(), row = e.target.closest('.q'); if(!row) return;
+  const i = +row.dataset.i;
+  if(e.target.closest('.nulBtn')) ex.key[i] = ex.key[i] === '*' ? '' : '*';
+  else { const b = e.target.closest('.b'); if(!b) return; ex.key[i] = ex.key[i] === b.dataset.l ? '' : b.dataset.l; }
+  save(); paintKey(); syncKeyFast();
+});
+
+function paint(){
+  const ex = E(), s = stu(cur), n = nq(ex);
+  document.querySelectorAll('#sheet .q').forEach(row=>{
+    const i = +row.dataset.i, a = s.ans[i], k = ex.key[i];
+    row.classList.toggle('cur', i===curQ);
+    row.classList.toggle('nul', k==='*');
+    row.querySelectorAll('.b').forEach(b=>{
+      const l = b.dataset.l;
+      const okMark = k==='*' || l===k;
+      b.className = 'b' + (a===l ? ' mark '+(okMark?'ok':'bad') : '') + (a && k && k!=='*' && a!==k && l===k ? ' key' : '');
+    });
+    const st = row.querySelector('.st');
+    if(k==='*'){ st.textContent='anul.'; st.className='st'; }
+    else if(!a){ st.textContent=''; st.className='st'; }
+    else if(a===k){ st.textContent='✓'; st.className='st ok'; }
+    else { st.textContent = a==='X'?'X':(a==='-'?'–':'✗'); st.className='st bad'; }
+  });
+  const r = score(ex, s.ans), blank = s.ans.filter(a=>!a).length;
+  document.getElementById('grade').textContent = s.ans.some(a=>a) ? fmt(r.grade) : '–';
+  document.getElementById('gradeSub').textContent = `${r.tot} de ${n} acertos`;
+  document.getElementById('miss').textContent = blank && blank<n ? `${blank} sem marcar` : '';
+  document.getElementById('stuName').value = s.name;
+  document.getElementById('stuSel').value = cur;
+  document.getElementById('stuOf').textContent = `de ${ex.n}`;
+  const missing = ex.key.filter(k=>!k).length;
+  document.getElementById('keyWarn').textContent = missing ? `${missing} questão(ões) sem gabarito — elas não contam ponto. Complete em Configurar.` : '';
+}
+
+function focusRow(i){
+  const row = document.querySelector(`#sheet .q[data-i="${i}"]`); if(!row) return;
+  const r = row.getBoundingClientRect();
+  const top = document.getElementById('stuHead').getBoundingClientRect().bottom + 8;
+  const bottom = window.innerHeight - document.getElementById('scorebar').offsetHeight - 8;
+  if(r.top < top || r.bottom > bottom) window.scrollBy({top: r.top - (top+bottom)/2 + r.height/2, behavior:'smooth'});
+}
+
+function syncFast(){
+  const s = stu(cur); let last = -1; s.ans.forEach((a,i)=>{ if(a) last=i; });
+  document.getElementById('fastIn').value = s.ans.slice(0,last+1).map(a=>a||'-').join('');
+}
+function syncKeyFast(){
+  const ex = E(); let last = -1; ex.key.forEach((k,i)=>{ if(k) last=i; });
+  document.getElementById('keyFast').value = ex.key.slice(0,last+1).map(k=>k||'-').join('');
+}
+
+function goStudent(n){
+  const ex = E();
+  cur = Math.max(1, Math.min(ex.n, n));
+  curQ = stu(cur).ans.findIndex(a=>!a); if(curQ<0) curQ = 0;
+  paint(); syncFast();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function fillStudentSelect(){
+  const ex = E(), sel = document.getElementById('stuSel');
+  let h = '';
+  for(let n=1; n<=ex.n; n++) h += `<option value="${n}">${pad(n)}${answered(ex,n)?' ✓':''}</option>`;
+  sel.innerHTML = h; sel.value = cur;
+}
+
+/* ================= Configurar ================= */
+function paintKey(){
+  const ex = E();
+  document.querySelectorAll('#keySheet .q').forEach(row=>{
+    const i = +row.dataset.i;
+    row.classList.toggle('nul', ex.key[i]==='*');
+    row.querySelectorAll('.b').forEach(b=> b.className = 'b' + (ex.key[i]===b.dataset.l ? ' mark' : ''));
+  });
+  const missing = ex.key.filter(k=>!k).length;
+  document.getElementById('keyMissing').textContent = missing ? `Faltam ${missing} de ${nq(ex)} questões no gabarito.` : '';
+}
+
+function renderDisc(){
+  const ex = E(), rg = ranges(ex);
+  document.getElementById('discList').innerHTML = rg.map((a,j)=>`
+    <div class="disc" data-j="${j}">
+      <input class="dName" value="${esc(a.name)}" aria-label="Nome da disciplina">
+      <input class="dQ" type="number" min="1" max="200" inputmode="numeric" value="${a.q}" aria-label="Quantidade de questões">
+      <span class="rng">${a.q>0?pad(a.from)+'–'+pad(a.to):'–'}</span>
+      <button class="del" aria-label="Remover disciplina" ${ex.areas.length<2?'disabled style="opacity:.3"':''}>×</button>
+    </div>`).join('');
+  document.getElementById('discTotal').textContent = `Total: ${nq(ex)} questões`;
+}
+
+function renderConfig(){
+  const ex = E();
+  document.getElementById('cTitle').value = ex.title;
+  document.getElementById('cN').value = ex.n;
+  document.getElementById('cMax').value = ex.max;
+  document.getElementById('cAlts').value = ex.alts;
+  renderDisc();
+  buildSheet(document.getElementById('keySheet'), true);
+  paintKey(); syncKeyFast();
+  const names = []; for(let n=1;n<=ex.n;n++) names.push((ex.students[n]||{}).name||'');
+  while(names.length && !names[names.length-1]) names.pop();
+  document.getElementById('namesIn').value = names.join('\n');
+}
+
+function structureChanged(){
+  const ex = E(); normalize(ex); save();
+  renderDisc();
+  buildSheet(document.getElementById('keySheet'), true); paintKey(); syncKeyFast();
+  buildSheet(document.getElementById('sheet'), false);
+}
+
+document.getElementById('cTitle').oninput = e => { E().title = e.target.value || 'Sem nome'; save(); headerTitle(); };
+document.getElementById('cN').onchange = e => {
+  const ex = E(); ex.n = Math.max(1, Math.min(100, +e.target.value || 40)); e.target.value = ex.n;
+  if(cur > ex.n) cur = ex.n; save(); fillStudentSelect();
+};
+document.getElementById('cMax').onchange = e => { E().max = +e.target.value || 10; save(); };
+document.getElementById('cAlts').onchange = e => {
+  const ex = E(); ex.alts = +e.target.value;
+  if(ex.alts === 4){
+    // letra E deixa de existir: limpa do gabarito e das respostas
+    ex.key = ex.key.map(k => k==='E' ? '' : k);
+    Object.values(ex.students).forEach(s => s.ans = s.ans.map(a => a==='E' ? '' : a));
+  }
+  save(); structureChanged();
+};
+
+document.getElementById('discList').addEventListener('input', e=>{
+  const row = e.target.closest('.disc'); if(!row) return;
+  const a = E().areas[+row.dataset.j];
+  if(e.target.classList.contains('dName')){ a.name = e.target.value; save(); buildSheet(document.getElementById('keySheet'), true); paintKey(); buildSheet(document.getElementById('sheet'), false); }
+});
+document.getElementById('discList').addEventListener('change', e=>{
+  const row = e.target.closest('.disc'); if(!row || !e.target.classList.contains('dQ')) return;
+  const ex = E(), a = ex.areas[+row.dataset.j];
+  const novo = Math.max(1, Math.min(200, +e.target.value || 1));
+  if(novo < a.q && Object.keys(ex.students).length && !confirm('Reduzir questões apaga as respostas já lançadas nessas questões. Continuar?')){ e.target.value = a.q; return; }
+  // redimensiona dentro da própria faixa, para as outras disciplinas não "escorregarem"
+  const rg = ranges(ex)[+row.dataset.j], start = rg.from - 1, diff = novo - a.q;
+  const shift = arr => { if(diff>0) arr.splice(start + a.q, 0, ...Array(diff).fill('')); else arr.splice(start + novo, -diff); };
+  shift(ex.key); Object.values(ex.students).forEach(s => shift(s.ans));
+  a.q = novo; structureChanged();
+});
+document.getElementById('discList').addEventListener('click', e=>{
+  const del = e.target.closest('.del'); if(!del || del.disabled) return;
+  const ex = E(), j = +del.closest('.disc').dataset.j, rg = ranges(ex)[j];
+  if(!confirm(`Remover "${rg.name}" (questões ${pad(rg.from)}–${pad(rg.to)})? O gabarito e as respostas dessas questões serão apagados.`)) return;
+  ex.key.splice(rg.from-1, rg.q); Object.values(ex.students).forEach(s => s.ans.splice(rg.from-1, rg.q));
+  ex.areas.splice(j,1); structureChanged();
+});
+document.getElementById('addDisc').onclick = () => {
+  const ex = E(); ex.areas.push({name:'Nova disciplina', q:5}); structureChanged();
+  const inputs = document.querySelectorAll('#discList .dName'); inputs[inputs.length-1].select();
+};
+
+document.getElementById('keyFast').addEventListener('input', e=>{
+  const ex = E(), n = nq(ex), ok = new RegExp('[^' + letters(ex).join('') + '*\\-]','g');
+  const v = e.target.value.toUpperCase().replace(ok,'').slice(0,n);
+  e.target.value = v;
+  ex.key = Array.from({length:n}, (_,i)=> v[i] && v[i] !== '-' ? v[i] : '');
+  save(); paintKey();
+});
+
+document.getElementById('namesApply').onclick = () => {
+  const ex = E();
+  const names = document.getElementById('namesIn').value.split('\n').map(x=>x.trim());
+  while(names.length && !names[names.length-1]) names.pop();
+  if(!names.length){ toast('Cole pelo menos um nome.'); return; }
+  names.forEach((nm,i)=>{ stu(i+1).name = nm; });
+  ex.n = names.length; document.getElementById('cN').value = ex.n;
+  if(cur > ex.n) cur = ex.n;
+  save(); fillStudentSelect(); toast(`${names.length} nomes aplicados.`);
+};
+
+document.getElementById('resetExam').onclick = () => {
+  const ex = E();
+  if(!confirm(`Apagar todas as correções de "${ex.title}"? Gabarito, disciplinas e nomes são mantidos.`)) return;
+  Object.values(ex.students).forEach(s => s.ans = Array(nq(ex)).fill(''));
+  save(); cur = 1; fillStudentSelect(); toast('Correções apagadas.');
+};
+
+/* ================= Resultados ================= */
+function renderResults(){
+  const ex = E(), n = nq(ex), rg = ranges(ex), L = letters(ex);
+  const done = []; for(let i=1;i<=ex.n;i++) if(answered(ex,i)) done.push(i);
+  const grades = done.map(i => score(ex, ex.students[i].ans).grade);
+  const avg = grades.length ? grades.reduce((a,b)=>a+b,0)/grades.length : 0;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><b>${done.length}/${ex.n}</b><span>corrigidas</span></div>
+    <div class="stat"><b>${grades.length?fmt(avg):'–'}</b><span>média da turma</span></div>
+    <div class="stat"><b>${grades.length?fmt(Math.max(...grades)):'–'}</b><span>maior nota</span></div>`;
+
+  const tbl = document.getElementById('tbl');
+  if(!done.length) tbl.innerHTML = '<tr><td class="empty">Nenhuma prova corrigida ainda. Comece pela aba Corrigir.</td></tr>';
+  else{
+    const abbr = s => esc((s||'?').replace(/^L[íi]ngua\s+/i,'').slice(0,4));
+    let h = `<tr><th>Nº</th><th>Nome</th>${rg.map(a=>`<th title="${esc(a.name)}">${abbr(a.name)}<br>/${a.q}</th>`).join('')}<th>Total<br>/${n}</th><th>Nota</th></tr>`;
+    done.forEach(i=>{
+      const s = ex.students[i], r = score(ex, s.ans);
+      h += `<tr class="go" data-n="${i}"><td>${pad(i)}</td><td>${esc(s.name)||'—'}</td>${r.per.map(p=>`<td>${p}</td>`).join('')}<td>${r.tot}</td><td class="${r.grade<ex.max*0.6?'low':''}">${fmt(r.grade)}</td></tr>`;
+    });
+    tbl.innerHTML = h;
+  }
+
+  let qh = '';
+  for(let i=0;i<n;i++){
+    let ok = 0; const wrong = {};
+    const k = ex.key[i];
+    done.forEach(j=>{ const a = ex.students[j].ans[i]; if(k==='*' || (a && a===k)) ok++; else if(L.includes(a)) wrong[a]=(wrong[a]||0)+1; });
+    const p = done.length ? Math.round(ok/done.length*100) : null;
+    const top = Object.entries(wrong).sort((a,b)=>b[1]-a[1])[0];
+    qh += `<div class="qb${p!==null&&p<50&&k!=='*'?' low':''}"><div class="n">${pad(i+1)} · ${k==='*'?'anul.':(k||'?')}</div><div class="p">${p===null?'–':p+'%'}</div><div class="w">${top&&k!=='*'?'marcaram '+top[0]:'&nbsp;'}</div></div>`;
+  }
+  document.getElementById('qbars').innerHTML = qh;
+}
+
+function csvText(ex){
+  const rg = ranges(ex), n = nq(ex);
+  const head = ['Nº','Nome',...rg.map(a=>a.name),'Acertos','Nota',...Array.from({length:n},(_,i)=>'Q'+pad(i+1))];
+  const rows = [head, ['','Gabarito',...rg.map(()=>''),'','',...ex.key.map(k=>k==='*'?'anulada':k)]];
+  for(let i=1;i<=ex.n;i++){
+    if(!answered(ex,i)) continue;
+    const s = ex.students[i], r = score(ex, s.ans);
+    rows.push([i, s.name, ...r.per, r.tot, fmt(r.grade), ...s.ans.map(a=>a||'')]);
+  }
+  return rows.map(r=>r.map(c=>{ c=String(c); return /[;"\n]/.test(c) ? '"'+c.replace(/"/g,'""')+'"' : c; }).join(';')).join('\n');
+}
+const slug = t => (t||'prova').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase().slice(0,60) || 'prova';
+const today = () => new Date().toISOString().slice(0,10);
+
+document.getElementById('csv').onclick = () => {
+  const ex = E();
+  // BOM + ponto e vírgula: abre direto no Excel em português
+  offerFile(`notas-${slug(ex.title)}.csv`, '\ufeff'+csvText(ex), 'Planilha copiada. Cole no Excel ou Planilhas Google.');
+};
+document.getElementById('copy').onclick = async () => {
+  const ex = E(), lines = [];
+  for(let i=1;i<=ex.n;i++){ if(!answered(ex,i)) continue; const s = ex.students[i]; lines.push(`${i}\t${s.name}\t${fmt(score(ex,s.ans).grade)}`); }
+  try{ await navigator.clipboard.writeText(lines.join('\n')); toast('Notas copiadas.'); }
+  catch(e){ toast('Não foi possível copiar aqui.'); }
+};
+document.getElementById('tbl').addEventListener('click', e=>{
+  const tr = e.target.closest('tr.go'); if(!tr) return;
+  switchTab('corrigir'); goStudent(+tr.dataset.n);
+});
+
+/* ================= Provas ================= */
+function renderExams(){
+  const el = document.getElementById('examList');
+  el.innerHTML = D.exams.map(ex=>{
+    let done = 0; for(let i=1;i<=ex.n;i++) if(answered(ex,i)) done++;
+    const pct = ex.n ? Math.round(done/ex.n*100) : 0;
+    return `<div class="exam${ex.id===D.cur?' cur':''}" data-id="${ex.id}">
+      <h3>${esc(ex.title)}</h3>
+      <p>${nq(ex)} questões, ${ex.areas.length} disciplina(s), ${done} de ${ex.n} corrigidas</p>
+      <div class="prog"><i style="width:${pct}%"></i></div>
+      <div class="actions">
+        ${ex.id===D.cur?'<button class="btn sm" disabled>Aberta</button>':'<button class="btn sm primary" data-act="open">Abrir</button>'}
+        <button class="btn sm" data-act="dup">Duplicar</button>
+        <button class="btn sm danger" data-act="del">Excluir</button>
+      </div></div>`;
+  }).join('');
+}
+document.getElementById('examList').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-act]'); if(!btn) return;
+  const id = btn.closest('.exam').dataset.id, ex = D.exams.find(x=>x.id===id);
+  if(btn.dataset.act === 'open'){ openExam(id); switchTab('corrigir'); }
+  if(btn.dataset.act === 'dup'){
+    // mesma prova para outra turma: copia gabarito e disciplinas, sem alunos
+    const c = JSON.parse(JSON.stringify(ex));
+    c.id = uid(); c.title = ex.title + ' (cópia)'; c.students = {}; c.created = Date.now();
+    D.exams.splice(D.exams.indexOf(ex)+1, 0, c); save(); openExam(c.id); switchTab('configurar');
+    toast('Prova duplicada. Ajuste o nome e os alunos.');
+    setTimeout(()=>document.getElementById('cTitle').select(), 50);
+  }
+  if(btn.dataset.act === 'del'){
+    if(!confirm(`Excluir "${ex.title}" e todas as correções dela? Isso não pode ser desfeito (a não ser por um backup).`)) return;
+    D.exams = D.exams.filter(x=>x.id!==id);
+    if(!D.exams.length) D.exams.push(blankExam());
+    if(D.cur === id) D.cur = D.exams[0].id;
+    save(); openExam(D.cur); renderExams();
+  }
+});
+document.getElementById('newExam').onclick = () => {
+  const ex = blankExam(); D.exams.push(ex); save(); openExam(ex.id); switchTab('configurar');
+  setTimeout(()=>document.getElementById('cTitle').select(), 50);
+};
+
+function openExam(id){
+  D.cur = id; save(); cur = 1; curQ = 0;
+  headerTitle();
+  buildSheet(document.getElementById('sheet'), false);
+  fillStudentSelect(); goStudent(1);
+}
+function headerTitle(){ document.getElementById('examTitle').textContent = E().title; }
+
+/* ---- Backup ---- */
+const backupText = () => JSON.stringify({app:'corretor-provas', version:2, exported:new Date().toISOString(), exams:D.exams}, null, 1);
+
+document.getElementById('expAll').onclick = () =>
+  offerFile(`backup-correcoes-${today()}.json`, backupText(), 'Download indisponível aqui: backup copiado como texto. Cole num arquivo ou mensagem para guardar.');
+document.getElementById('copyBackup').onclick = async () => {
+  try{ await navigator.clipboard.writeText(backupText()); toast('Backup copiado.'); }
+  catch(e){ toast('Não foi possível copiar aqui.'); }
+};
+
+function validExam(x){
+  return x && typeof x==='object' && Array.isArray(x.areas) && Array.isArray(x.key) && x.areas.every(a=>a && typeof a.q==='number');
+}
+function importData(text){
+  const msg = document.getElementById('impMsg'); msg.className = 'note';
+  let data;
+  try{ data = JSON.parse(text); }catch(e){ msg.className='note warn'; msg.textContent='O arquivo não é um backup válido (JSON ilegível).'; return; }
+  let exams = [];
+  if(data && Array.isArray(data.exams)) exams = data.exams;
+  else if(data && data.key && data.students){ const p = presetExam(); Object.assign(p, {key:data.key, n:data.n||40, max:data.max||10, students:data.students}); exams=[p]; } // backup da 1ª versão
+  exams = exams.filter(validExam).map(x=>({
+    id:x.id||uid(), title:String(x.title||'Prova importada'), alts:x.alts===4?4:5, n:+x.n||40, max:+x.max||10,
+    areas:x.areas.map(a=>({name:String(a.name||'Disciplina'), q:Math.max(1,+a.q||1)})), key:x.key, students:x.students||{}, created:x.created||Date.now()
+  }));
+  exams.forEach(normalize);
+  if(!exams.length){ msg.className='note warn'; msg.textContent='Nenhuma prova encontrada nesse backup.'; return; }
+
+  const replace = confirm(`Backup com ${exams.length} prova(s).\n\nOK = SUBSTITUIR tudo o que está neste aparelho.\nCancelar = ADICIONAR às provas atuais (as de mesmo código são atualizadas).`);
+  if(replace) D.exams = exams;
+  else exams.forEach(x=>{ const i = D.exams.findIndex(y=>y.id===x.id); if(i>=0) D.exams[i]=x; else D.exams.push(x); });
+  if(!D.exams.find(x=>x.id===D.cur)) D.cur = D.exams[0].id;
+  save(); openExam(D.cur); renderExams();
+  msg.className='note ok'; msg.textContent = `${exams.length} prova(s) ${replace?'restauradas':'importadas'}.`;
+}
+document.getElementById('impBtn').onclick = () => document.getElementById('impFile').click();
+document.getElementById('impFile').onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader(); r.onload = () => importData(r.result); r.readAsText(f); e.target.value = '';
+};
+document.getElementById('pasteImport').onclick = () => {
+  const t = document.getElementById('pasteBackup').value.trim();
+  if(!t){ toast('Cole o texto do backup primeiro.'); return; }
+  importData(t);
+};
+
+/* ================= Correção: eventos ================= */
+document.getElementById('prev').onclick = () => goStudent(cur-1);
+document.getElementById('next').onclick = () => goStudent(cur+1);
+document.getElementById('saveNext').onclick = () => {
+  const ex = E(); let n = cur+1; while(n<=ex.n && answered(ex,n)) n++;
+  fillStudentSelect(); goStudent(n<=ex.n ? n : cur+1);
+};
+document.getElementById('stuSel').onchange = e => goStudent(+e.target.value);
+document.getElementById('stuName').oninput = e => { stu(cur).name = e.target.value; save(); };
+document.getElementById('fastIn').addEventListener('input', e=>{
+  const ex = E(), n = nq(ex), ok = new RegExp('[^' + letters(ex).join('') + 'X\\-]','g');
+  const v = e.target.value.toUpperCase().replace(ok,'').slice(0,n);
+  e.target.value = v;
+  stu(cur).ans = Array.from({length:n}, (_,i)=> v[i] || '');
+  curQ = Math.min(v.length, n-1); save(); paint();
+});
+document.getElementById('clearStu').onclick = () => {
+  if(!confirm(`Limpar as respostas do aluno ${cur}?`)) return;
+  stu(cur).ans = Array(nq(E())).fill(''); curQ = 0; save(); paint(); syncFast(); fillStudentSelect();
+};
+
+/* ================= Abas ================= */
+function switchTab(t){
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected', x.dataset.tab===t));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+t));
+  document.getElementById('scorebar').style.display = t==='corrigir' ? '' : 'none';
+  if(t==='resultados') renderResults();
+  if(t==='configurar') renderConfig();
+  if(t==='provas') renderExams();
+  if(t==='corrigir'){ buildSheet(document.getElementById('sheet'), false); fillStudentSelect(); paint(); }
+  window.scrollTo({top:0});
+}
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+document.getElementById('examBtn').onclick = () => switchTab('provas');
+
+function measureNav(){ document.documentElement.style.setProperty('--navh', document.getElementById('top').offsetHeight + 'px'); }
+window.addEventListener('resize', measureNav);
+
+/* ================= Início ================= */
+D.exams.forEach(normalize); save();
+headerTitle(); measureNav();
+buildSheet(document.getElementById('sheet'), false);
+fillStudentSelect(); goStudent(1);
+</script>
+</body>
+</html>
